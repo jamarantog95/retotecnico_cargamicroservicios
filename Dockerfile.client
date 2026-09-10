@@ -1,0 +1,5 @@
+FROM nginx:1.27-alpine
+
+COPY src/ClientWeb /usr/share/nginx/html/src/ClientWeb
+
+EXPOSE 80

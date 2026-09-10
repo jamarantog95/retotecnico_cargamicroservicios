@@ -1,0 +1,140 @@
+services:
+  client-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "5500:80"
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD:-ChangeThisPassword!123}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  database-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      SQL_SA_PASSWORD: ${SQL_SA_PASSWORD:-ChangeThisPassword!123}
+    volumes:
+      - ./database/00_init_retotecnico.sql:/scripts/00_init_retotecnico.sql:ro
+      - ./database/01_create_stored_procedures.sql:/scripts/01_create_stored_procedures.sql:ro
+      - ./database/03_seed_admin_user.sql:/scripts/03_seed_admin_user.sql:ro
+    command: >
+      /bin/bash -c ' until /opt/mssql-tools/bin/sqlcmd -C -S sqlserver -U sa -P "$$SQL_SA_PASSWORD" -i /scripts/00_init_retotecnico.sql; do sleep 2; done; until /opt/mssql-tools/bin/sqlcmd -C -S sqlserver -U sa -P "$$SQL_SA_PASSWORD" -d retotecnico -i /scripts/01_create_stored_procedures.sql; do sleep 2; done; /opt/mssql-tools/bin/sqlcmd -C -S sqlserver -U sa -P "$$SQL_SA_PASSWORD" -d retotecnico -i /scripts/03_seed_admin_user.sql'
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5673:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    command: server -dir=/data -filer
+    ports:
+      - "8888:8888"
+    volumes:
+      - seaweedfs-data:/data
+
+  auth:
+    build:
+      context: .
+      args:
+        PROJECT_PATH: src/AuthMicroservice/AuthMicroservice.csproj
+    environment:
+      APP_DLL: AuthMicroservice.dll
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=retotecnico;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeThisPassword!123};TrustServerCertificate=True;
+    ports:
+      - "5027:8080"
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+
+  control:
+    build:
+      context: .
+      args:
+        PROJECT_PATH: src/ControlMicroservice/ControlMicroservice.csproj
+    environment:
+      APP_DLL: ControlMicroservice.dll
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=retotecnico;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeThisPassword!123};TrustServerCertificate=True;
+      RabbitMQ__HostName: rabbitmq
+      SeaweedFS__BaseUrl: http://seaweedfs:8888
+    ports:
+      - "5299:8080"
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+
+  bulk-process:
+    build:
+      context: .
+      args:
+        PROJECT_PATH: src/BulkProcessMicroservice/BulkProcessMicroservice.csproj
+    environment:
+      APP_DLL: BulkProcessMicroservice.dll
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=retotecnico;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeThisPassword!123};TrustServerCertificate=True;
+      RabbitMQ__HostName: rabbitmq
+      SeaweedFS__BaseUrl: http://seaweedfs:8888
+    ports:
+      - "5149:8080"
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+
+  notification:
+    build:
+      context: .
+      args:
+        PROJECT_PATH: src/NotificationMicroservice/NotificationMicroservice.csproj
+    environment:
+      APP_DLL: NotificationMicroservice.dll
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=retotecnico;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeThisPassword!123};TrustServerCertificate=True;
+      RabbitMQ__HostName: rabbitmq
+      Smtp__Password: ${SMTP_PASSWORD:-}
+    ports:
+      - "5000:8080"
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  sqlserver-data:
+  rabbitmq-data:
+  seaweedfs-data:

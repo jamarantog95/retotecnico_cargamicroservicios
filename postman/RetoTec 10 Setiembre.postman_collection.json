@@ -1,0 +1,156 @@
+{
+  "info": {
+    "_postman_id": "ad203d3e-28ad-4cc5-b8a3-e83d07313f5c",
+    "name": "RetoTec 10 Setiembre",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25409502"
+  },
+  "item": [
+    {
+      "name": "Autenticación de usuario",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"username\": \"jamarantog95u@gmail.com\",\r\n  \"password\": \"Admin123*\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5027/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5027",
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Carga un archivo Excel",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{supabase_service_role_api_key_0y74}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "description": "carga_casino19.xlsx",
+              "src": [
+                "postman-cloud:///1f1ad36c-557a-4250-b6db-7640bc6e65f5"
+              ]
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:5299/api/control/upload",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5299",
+          "path": [
+            "api",
+            "control",
+            "upload"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Consulta el historial de cargas",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{supabase_service_role_api_key_0y74}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5299/api/control/history?limit=10",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5299",
+          "path": [
+            "api",
+            "control",
+            "history"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Ejecuta el procesamiento masivo de un archivo",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"cargaArchivoId\": 1006,\r\n  \"rutaArchivo\": \"seaweed://uploads/carga_casino19.xlsx\",\r\n  \"periodo\": \"2027-01\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5149/api/process/ejecutar",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5149",
+          "path": [
+            "api",
+            "process",
+            "ejecutar"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "supabase_service_role_api_key_0y74",
+      "secret": true
+    }
+  ]
+}
